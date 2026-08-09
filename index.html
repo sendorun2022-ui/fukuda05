@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>モグラたたきゲーム</title>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+    background: linear-gradient(135deg, #8bc34a, #4caf50);
+    color: #333;
+  }
+
+  h1 {
+    color: #fff;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .title-mole {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+  }
+
+  .title-mole svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .info {
+    display: flex;
+    gap: 30px;
+    background: #fff;
+    padding: 10px 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    margin-bottom: 20px;
+    font-size: 20px;
+    font-weight: bold;
+  }
+
+  .info span {
+    color: #e53935;
+  }
+
+  #startBtn {
+    padding: 10px 24px;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 30px;
+    background: #ff9800;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    margin-bottom: 20px;
+    transition: transform 0.1s;
+  }
+
+  #startBtn:active {
+    transform: scale(0.95);
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 120px);
+    grid-template-rows: repeat(3, 120px);
+    gap: 15px;
+    background: #6d4c41;
+    padding: 15px;
+    border-radius: 16px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+  }
+
+  .hole {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    background: #3e2723;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: inset 0 8px 15px rgba(0,0,0,0.6);
+    cursor: pointer;
+  }
+
+  .mole {
+    position: absolute;
+    bottom: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: bottom 0.15s ease-out;
+    user-select: none;
+  }
+
+  .mole svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .hole.up .mole {
+    bottom: 5px;
+  }
+
+  .hole.hit .mole {
+    bottom: -100%;
+    transition: bottom 0.1s ease-in;
+  }
+
+  .hole.hit {
+    animation: shake 0.3s ease;
+  }
+
+  @keyframes shake {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(-4px, 2px); }
+    50% { transform: translate(4px, -2px); }
+    75% { transform: translate(-3px, 1px); }
+    100% { transform: translate(0, 0); }
+  }
+
+  .hit-effect {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 28px;
+    font-weight: bold;
+    color: #ffeb3b;
+    text-shadow: 2px 2px 3px rgba(0,0,0,0.6), 0 0 6px #ff9800;
+    pointer-events: none;
+    animation: pop-up 0.6s ease-out forwards;
+    z-index: 5;
+  }
+
+  @keyframes pop-up {
+    0% {
+      transform: translate(-50%, -50%) scale(0.5);
+      opacity: 1;
+    }
+    60% {
+      transform: translate(-50%, -120%) scale(1.2);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-50%, -160%) scale(1);
+      opacity: 0;
+    }
+  }
+
+  .star {
+    position: absolute;
+    font-size: 20px;
+    pointer-events: none;
+    animation: burst 0.5s ease-out forwards;
+    z-index: 4;
+  }
+
+  @keyframes burst {
+    0% {
+      transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(var(--tx), var(--ty)) scale(1) rotate(180deg);
+      opacity: 0;
+    }
+  }
+
+  .message {
+    margin-top: 20px;
+    font-size: 22px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+    height: 30px;
+  }
+
+  .hidden {
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+  <h1>🔨 モグラたたきゲーム <span class="title-mole"></span></h1>
+
+  <div class="info">
+    <div>スコア: <span id="score">0</span></div>
+    <div>残り時間: <span id="time">30</span>秒</div>
+  </div>
+
+  <button id="startBtn">スタート</button>
+
+  <div class="board" id="board"></div>
+
+  <div class="message" id="message"></div>
+
+<script>
+  const board = document.getElementById('board');
+  const scoreEl = document.getElementById('score');
+  const timeEl = document.getElementById('time');
+  const startBtn = document.getElementById('startBtn');
+  const messageEl = document.getElementById('message');
+
+  const HOLE_COUNT = 9;
+  const GAME_TIME = 30;
+
+  const MOLE_SVG = `
+    <svg viewBox="0 0 100 100">
+      <!-- 体（丸くふっくら） -->
+      <ellipse cx="50" cy="62" rx="34" ry="30" fill="#6d4c3d"/>
+      <!-- お腹 -->
+      <ellipse cx="50" cy="70" rx="20" ry="15" fill="#a87d5f"/>
+      <!-- 左手 -->
+      <ellipse cx="22" cy="70" rx="9" ry="7" fill="#6d4c3d"/>
+      <!-- 右手 -->
+      <ellipse cx="78" cy="70" rx="9" ry="7" fill="#6d4c3d"/>
+      <!-- 手の爪 -->
+      <path d="M16,68 l-4,-2 M20,72 l-4,1 M24,68 l-2,-3" stroke="#4a3527" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+      <path d="M84,68 l4,-2 M80,72 l4,1 M76,68 l2,-3" stroke="#4a3527" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+      <!-- 頭 -->
+      <ellipse cx="50" cy="38" rx="26" ry="22" fill="#6d4c3d"/>
+      <!-- 鼻先（尖った鼻づら） -->
+      <ellipse cx="50" cy="46" rx="10" ry="8" fill="#7a5a47"/>
+      <ellipse cx="50" cy="49" rx="5" ry="4" fill="#ff8fa3"/>
+      <!-- 目（小さくつぶらな目） -->
+      <ellipse cx="38" cy="34" rx="2.5" ry="3" fill="#2b1f18"/>
+      <ellipse cx="62" cy="34" rx="2.5" ry="3" fill="#2b1f18"/>
+      <!-- ひげ -->
+      <path d="M40,47 l-14,-3 M40,50 l-14,2 M60,47 l14,-3 M60,50 l14,2" stroke="#4a3527" stroke-width="1" stroke-linecap="round" fill="none" opacity="0.6"/>
+    </svg>
+  `;
+
+  // タイトル横のモグラアイコン
+  document.querySelector('.title-mole').innerHTML = MOLE_SVG;
+
+  let score = 0;
+  let timeLeft = GAME_TIME;
+  let holes = [];
+  let moleTimer = null;
+  let countdownTimer = null;
+  let currentMoleHole = null;
+  let gameRunning = false;
+
+  // 穴を生成
+  for (let i = 0; i < HOLE_COUNT; i++) {
+    const hole = document.createElement('div');
+    hole.className = 'hole';
+    hole.dataset.index = i;
+
+    const mole = document.createElement('div');
+    mole.className = 'mole';
+    mole.innerHTML = MOLE_SVG;
+
+    hole.appendChild(mole);
+    hole.addEventListener('click', () => whack(hole));
+
+    board.appendChild(hole);
+    holes.push(hole);
+  }
+
+  function randomTime(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  // 経過時間の割合(0〜1)に応じて、モグラの表示時間の範囲を返す
+  // ゲーム開始直後はゆっくり、終盤に近づくほど速くなる
+  function getSpeedRange() {
+    const elapsed = GAME_TIME - timeLeft;
+    const progress = Math.min(elapsed / GAME_TIME, 1); // 0〜1
+
+    const startMin = 1000, startMax = 1600; // 開始時：ゆっくり
+    const endMin = 350, endMax = 650;       // 終了時：速い
+
+    const min = startMin + (endMin - startMin) * progress;
+    const max = startMax + (endMax - startMax) * progress;
+    return { min, max };
+  }
+
+  function popRandomMole() {
+    // 前のモグラを隠す
+    if (currentMoleHole) {
+      currentMoleHole.classList.remove('up');
+    }
+
+    const randomIndex = Math.floor(Math.random() * holes.length);
+    currentMoleHole = holes[randomIndex];
+    currentMoleHole.classList.remove('hit');
+    currentMoleHole.classList.add('up');
+
+    const { min, max } = getSpeedRange();
+    const upTime = randomTime(min, max);
+    moleTimer = setTimeout(() => {
+      if (currentMoleHole) {
+        currentMoleHole.classList.remove('up');
+      }
+      if (gameRunning) {
+        popRandomMole();
+      }
+    }, upTime);
+  }
+
+  function spawnHitEffect(hole) {
+    // ＋1 ポップアップ
+    const popup = document.createElement('div');
+    popup.className = 'hit-effect';
+    popup.textContent = '+1';
+    hole.appendChild(popup);
+    setTimeout(() => popup.remove(), 600);
+
+    // 星が飛び散る演出
+    const starCount = 6;
+    for (let i = 0; i < starCount; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
+      star.textContent = '✨';
+
+      const angle = (Math.PI * 2 * i) / starCount;
+      const distance = 50 + Math.random() * 20;
+      const tx = Math.cos(angle) * distance;
+      const ty = Math.sin(angle) * distance;
+      star.style.setProperty('--tx', `${tx}px`);
+      star.style.setProperty('--ty', `${ty}px`);
+      star.style.top = '50%';
+      star.style.left = '50%';
+
+      hole.appendChild(star);
+      setTimeout(() => star.remove(), 500);
+    }
+  }
+
+  function whack(hole) {
+    if (!gameRunning) return;
+    if (!hole.classList.contains('up')) return;
+
+    hole.classList.remove('up');
+    hole.classList.add('hit');
+    spawnHitEffect(hole);
+    score++;
+    scoreEl.textContent = score;
+
+    setTimeout(() => hole.classList.remove('hit'), 300);
+  }
+
+  function startGame() {
+    if (gameRunning) return;
+    gameRunning = true;
+    score = 0;
+    timeLeft = GAME_TIME;
+    scoreEl.textContent = score;
+    timeEl.textContent = timeLeft;
+    messageEl.textContent = '';
+    startBtn.disabled = true;
+    startBtn.textContent = 'プレイ中...';
+
+    popRandomMole();
+
+    countdownTimer = setInterval(() => {
+      timeLeft--;
+      timeEl.textContent = timeLeft;
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }, 1000);
+  }
+
+  function endGame() {
+    gameRunning = false;
+    clearTimeout(moleTimer);
+    clearInterval(countdownTimer);
+
+    holes.forEach(h => {
+      h.classList.remove('up');
+      h.classList.remove('hit');
+    });
+
+    startBtn.disabled = false;
+    startBtn.textContent = 'もう一度スタート';
+    messageEl.textContent = `ゲーム終了！ スコア: ${score} 点`;
+  }
+
+  startBtn.addEventListener('click', startGame);
+</script>
+
+</body>
+</html>
